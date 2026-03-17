@@ -1,0 +1,223 @@
+# AIECS-MCP 一键部署 - 主编排
+# 部署: Stats-Tool, Scraper-Tool, PPT-Tool, office-Tool, DocumentServer, API-Tool
+
+services:
+  # ============================================================================
+  # MCP Servers
+  # ============================================================================
+  api-tool:
+    build:
+      context: ../API-Tool
+      dockerfile: Dockerfile.mcp
+      target: production
+    container_name: aiecs-api-tool
+    image: aiecs-api-tool:latest
+    restart: unless-stopped
+    ports: ["5050:5050"]
+    env_file: .env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=5050
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - api-tool-logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [aiecs-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5050/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  stats-tool:
+    build:
+      context: ../Stats-Tool
+      dockerfile: Dockerfile.mcp
+      target: production
+    container_name: aiecs-stats-tool
+    image: aiecs-stats-tool:latest
+    restart: unless-stopped
+    ports: ["5080:5080"]
+    env_file: .env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=5080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - stats-tool-logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [aiecs-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5080/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  scraper-tool:
+    build:
+      context: ../Scraper-Tool
+      dockerfile: Dockerfile.mcp
+      target: production
+    container_name: aiecs-scraper-tool
+    image: aiecs-scraper-tool:latest
+    restart: unless-stopped
+    ports: ["5055:5055"]
+    env_file: .env
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=5055
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    volumes:
+      - scraper-tool-logs:/app/logs
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks: [aiecs-network]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5055/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  ppt-tool:
+    build:
+      context: ../PPT-Tool
+      dockerfile: backend/Dockerfile
+    container_name: aiecs-ppt-tool
+    image: aiecs-ppt-tool:latest
+    restart: unless-stopped
+    ports: ["5000:5000"]
+    env_file: .env
+    environment:
+      - FLASK_ENV=production
+      - BACKEND_PORT=5000
+    volumes:
+      - ppt-tool-instance:/app/backend/instance
+      - ppt-tool-uploads:/app/uploads
+      - ppt-tool-logs:/app/logs
+    networks: [aiecs-network]
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # office-Tool: 依赖 DocumentServer，待实现后取消注释
+  # office-tool:
+  #   build:
+  #     context: ../office-Tool
+  #     dockerfile: Dockerfile.mcp
+  #   container_name: aiecs-office-tool
+  #   ports: ["5040:5040"]
+  #   env_file: .env
+  #   environment:
+  #     - MCP_HOST=0.0.0.0
+  #     - MCP_PORT=5040
+  #     - DOCUMENTSERVER_URL=http://documentserver:80
+  #     - DOCUMENTSERVER_JWT_SECRET=${JWT_SECRET}
+  #   depends_on: [documentserver]
+  #   networks: [aiecs-network]
+
+  # ============================================================================
+  # DocumentServer (OnlyOffice) - 依赖 PostgreSQL、RabbitMQ、Redis
+  # ============================================================================
+  postgresql:
+    image: postgres:14
+    container_name: aiecs-postgresql
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: onlyoffice
+      POSTGRES_USER: onlyoffice
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes: [pg_data:/var/lib/postgresql/data]
+    networks: [aiecs-network]
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: aiecs-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-onlyoffice}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    networks: [aiecs-network]
+
+  documentserver:
+    # 方案 A：官方镜像 + patch 覆盖（无 20 限制、去品牌）
+    # 优先使用预构建镜像，否则从 DocumentServer 目录 build
+    build:
+      context: ../DocumentServer
+      dockerfile: Dockerfile
+      args:
+        ONLYOFFICE_VERSION: ${ONLYOFFICE_VERSION:-latest}
+    image: aiecs-documentserver-patched:latest
+    container_name: aiecs-documentserver
+    restart: unless-stopped
+    ports: ["8080:80"]
+    environment:
+      - JWT_ENABLED=true
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_HEADER=Authorization
+      - JWT_IN_BODY=true
+      - DB_TYPE=postgres
+      - DB_HOST=postgresql
+      - DB_PORT=5432
+      - DB_NAME=onlyoffice
+      - DB_USER=onlyoffice
+      - DB_PWD=${POSTGRES_PASSWORD}
+      - AMQP_URI=amqp://${RABBITMQ_USER:-onlyoffice}:${RABBITMQ_PASSWORD}@rabbitmq:5672
+    volumes:
+      - documentserver_data:/var/www/onlyoffice/Data
+      - documentserver_logs:/var/log/onlyoffice
+    depends_on:
+      - postgresql
+      - rabbitmq
+      - redis
+    networks: [aiecs-network]
+
+  # ============================================================================
+  # 共享 Redis（MCP 缓存 + DocumentServer）
+  # ============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: aiecs-redis
+    restart: unless-stopped
+    ports: ["6379:6379"]
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --requirepass ${REDIS_PASSWORD}
+    volumes: [redis_data:/data]
+    networks: [aiecs-network]
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+volumes:
+  pg_data:
+  documentserver_data:
+  documentserver_logs:
+  redis_data:
+  api-tool-logs:
+  stats-tool-logs:
+  scraper-tool-logs:
+  ppt-tool-instance:
+  ppt-tool-uploads:
+  ppt-tool-logs:
+
+networks:
+  aiecs-network:
+    driver: bridge

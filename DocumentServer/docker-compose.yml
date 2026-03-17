@@ -1,0 +1,35 @@
+# DocumentServer - OnlyOffice 文档服务
+# 使用自编译镜像（ghcr.io/...）或官方镜像
+# 自编译镜像已应用：去品牌 + 无 20 并发限制
+
+services:
+  documentserver:
+    # 自编译镜像（CI 构建后替换为实际地址）
+    # image: ghcr.io/Howmany-Zeta/documentserver-custom:latest
+    # 临时使用官方镜像（未去品牌、有 20 限制）
+    image: onlyoffice/documentserver:latest
+    container_name: aiecs-documentserver
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - JWT_ENABLED=${JWT_ENABLED:-true}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-change-me}
+      - JWT_HEADER=Authorization
+      - JWT_IN_BODY=true
+    volumes:
+      - documentserver_data:/var/www/onlyoffice/Data
+      - documentserver_logs:/var/log/onlyoffice
+      # Optional: mount custom config (copy local.json.example to local.json)
+      # - ./config/local.json:/etc/onlyoffice/documentserver/local.json:ro
+    networks:
+      - aiecs-documentserver-network
+
+volumes:
+  documentserver_data:
+  documentserver_logs:
+
+networks:
+  aiecs-documentserver-network:
+    driver: bridge

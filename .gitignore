@@ -1,0 +1,45 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+ENV/
+*.egg-info/
+.eggs/
+.mypy_cache/
+.pytest_cache/
+
+# Logs and data
+*.log
+logs/
+data/
+
+# Deploy
+deploy/.env
+
+# DocumentServer
+DocumentServer/config/local.json
+
+# DocumentServer-source (if tracked)
+DocumentServer-source/.mrconfig
+DocumentServer-source/
+

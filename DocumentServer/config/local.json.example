@@ -1,0 +1,26 @@
+{
+  "services": {
+    "CoAuthoring": {
+      "token": {
+        "enable": {
+          "request": {
+            "inbox": true,
+            "outbox": true
+          },
+          "browser": true
+        },
+        "inbox": {
+          "header": "Authorization"
+        },
+        "outbox": {
+          "header": "Authorization"
+        }
+      }
+    }
+  },
+  "storage": {
+    "fs": {
+      "path": "/var/www/onlyoffice/Data"
+    }
+  }
+}

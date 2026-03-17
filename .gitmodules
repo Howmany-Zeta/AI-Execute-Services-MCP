@@ -1,0 +1,12 @@
+[submodule "API-Tool"]
+	path = API-Tool
+	url = git@github.com:Howmany-Zeta/AI-Execute-Services-SOURCE-MCP.git
+[submodule "PPT-Tool"]
+	path = PPT-Tool
+	url = git@github.com:Howmany-Zeta/AI-Execute-Services-PPT-MCP.git
+[submodule "Scraper-Tool"]
+	path = Scraper-Tool
+	url = git@github.com:Howmany-Zeta/AI-Execute-Services-SCRAPER-MCP.git
+[submodule "Stats-Tool"]
+	path = Stats-Tool
+	url = git@github.com:Howmany-Zeta/AI-Execute-Services-STATS-MCP.git
