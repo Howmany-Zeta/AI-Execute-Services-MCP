@@ -1,0 +1,21 @@
+/* AIECS patch: 去除 OnlyOffice 品牌标识 */
+.ad-container,
+.powered-by-onlyoffice,
+[data-ad="onlyoffice"] {
+  display: none !important;
+}
+
+/* 左上角 logo（header-logo 在 common 中，各编辑器共用） */
+[class*="header-logo"],
+[class*="asc-logo"],
+.ds-header-logo,
+.asc-header-logo,
+a[href*="onlyoffice.com"] img,
+img[src*="header-logo"],
+img[src*="dark-logo"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}

@@ -6,16 +6,28 @@
 ARG ONLYOFFICE_VERSION=latest
 FROM onlyoffice/documentserver:${ONLYOFFICE_VERSION}
 
-# 覆盖 constants.js，去除 20 并发限制
+# 覆盖 constants.js（docservice 为 pkg 二进制，此文件不生效，仅保留供参考）
 COPY patches/constants.js \
   /var/www/onlyoffice/documentserver/server/Common/sources/constants.js
 
-# 品牌去除：追加到现有 CSS 文件末尾（光 COPY 独立 CSS 不会被加载）
-# 路径可能随 OnlyOffice 版本变化，若不存在则跳过
-RUN APP_CSS="/var/www/onlyoffice/documentserver/web-apps/apps/common/main/resources/css/app.css" && \
-  if [ -f "$APP_CSS" ]; then \
-    echo ".ad-container,.powered-by-onlyoffice,[data-ad=\"onlyoffice\"]{display:none!important}" >> "$APP_CSS"; \
-  else \
-    FIND_CSS=$(find /var/www/onlyoffice/documentserver/web-apps -name "*.css" -path "*common*" 2>/dev/null | head -1); \
-    if [ -n "$FIND_CSS" ]; then echo ".ad-container,.powered-by-onlyoffice{display:none!important}" >> "$FIND_CSS"; fi; \
-  fi
+# 品牌去除 1：用透明图替换左上角 logo（最可靠）
+COPY patches/transparent-logo.svg /tmp/transparent-logo.svg
+RUN for logo in \
+    /var/www/onlyoffice/documentserver/web-apps/apps/common/main/resources/img/header/header-logo_s.svg \
+    /var/www/onlyoffice/documentserver/web-apps/apps/common/main/resources/img/header/dark-logo_s.svg; do \
+  if [ -f "$logo" ]; then \
+    cp /tmp/transparent-logo.svg "$logo"; \
+    gzip -9 -c /tmp/transparent-logo.svg > "${logo}.gz" 2>/dev/null || true; \
+  fi; \
+  done && rm /tmp/transparent-logo.svg
+
+# 品牌去除 2：追加 CSS 隐藏广告/品牌元素
+COPY patches/brand-remove.css /tmp/brand-remove.css
+RUN for css in \
+    /var/www/onlyoffice/documentserver/web-apps/apps/documenteditor/main/resources/css/app.css \
+    /var/www/onlyoffice/documentserver/web-apps/apps/presentationeditor/main/resources/css/app.css \
+    /var/www/onlyoffice/documentserver/web-apps/apps/spreadsheeteditor/main/resources/css/app.css \
+    /var/www/onlyoffice/documentserver/web-apps/apps/pdfeditor/main/resources/css/app.css \
+    /var/www/onlyoffice/documentserver/web-apps/apps/visioeditor/main/resources/css/app.css; do \
+  if [ -f "$css" ]; then cat /tmp/brand-remove.css >> "$css"; fi; \
+  done && rm /tmp/brand-remove.css

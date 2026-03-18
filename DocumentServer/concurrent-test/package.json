@@ -1,0 +1,13 @@
+{
+  "name": "onlyoffice-concurrent-test",
+  "version": "1.0.0",
+  "description": "OnlyOffice DocumentServer 并发限制验证压测",
+  "scripts": {
+    "test": "node test-concurrent.js",
+    "test:25": "node test-concurrent.js 25",
+    "test:30": "node test-concurrent.js 30"
+  },
+  "dependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}
