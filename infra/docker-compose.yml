@@ -1,0 +1,143 @@
+# 统一测试基础设施：db, redis, nginx, DocumentServer(OnlyOffice)
+# DocumentServer 依赖: PostgreSQL(onlyoffice), RabbitMQ, Redis
+
+services:
+  # 数据库服务（document_server 等业务库）
+  db:
+    image: pgvector/pgvector:pg17
+    container_name: postgres_db_test
+    restart: always
+    environment:
+      POSTGRES_USER: startu_test
+      POSTGRES_PASSWORD: R-Y#q7,T8A}^D+0=b%Zd
+      POSTGRES_DB: document_server
+    ports:
+      - "5432:5432"
+    volumes:
+      - /root/data/postgres:/var/lib/postgresql/data
+    networks:
+      - infra-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U startu_test -d document_server"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # OnlyOffice DocumentServer 专用 PostgreSQL
+  db_onlyoffice:
+    image: postgres:14
+    container_name: postgres_onlyoffice
+    restart: always
+    environment:
+      POSTGRES_DB: onlyoffice
+      POSTGRES_USER: onlyoffice
+      POSTGRES_PASSWORD: ${ONLYOFFICE_PG_PASSWORD:-onlyoffice-secret}
+    ports:
+      - "5433:5432"
+    volumes:
+      - onlyoffice_pg_data:/var/lib/postgresql/data
+    networks:
+      - infra-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onlyoffice -d onlyoffice"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # 缓存服务（MCP 缓存 + DocumentServer 共享）
+  redis_cache:
+    image: redis:7-alpine
+    container_name: redis-db-test
+    ports:
+      - "6380:6379"
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD:-sdfh673uew}
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-sdfh673uew}", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    networks:
+      - infra-network
+
+  # RabbitMQ（DocumentServer 必需）
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq_test
+    restart: always
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-onlyoffice}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-onlyoffice-rmq-secret}
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - infra-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # DocumentServer (OnlyOffice) - 文档编辑服务
+  documentserver:
+    build:
+      context: ../AI-Execute-Services-MCP/DocumentServer
+      dockerfile: Dockerfile
+      args:
+        ONLYOFFICE_VERSION: ${ONLYOFFICE_VERSION:-latest}
+    image: aiecs-documentserver-patched:latest
+    container_name: aiecs-documentserver
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+    environment:
+      - JWT_ENABLED=true
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-change-me}
+      - JWT_HEADER=Authorization
+      - JWT_IN_BODY=true
+      - DB_TYPE=postgres
+      - DB_HOST=db_onlyoffice
+      - DB_PORT=5432
+      - DB_NAME=onlyoffice
+      - DB_USER=onlyoffice
+      - DB_PWD=${ONLYOFFICE_PG_PASSWORD:-onlyoffice-secret}
+      - AMQP_URI=amqp://${RABBITMQ_USER:-onlyoffice}:${RABBITMQ_PASSWORD:-onlyoffice-rmq-secret}@rabbitmq:5672
+    volumes:
+      - documentserver_data:/var/www/onlyoffice/Data
+      - documentserver_logs:/var/log/onlyoffice
+    depends_on:
+      db_onlyoffice:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+    networks:
+      - infra-network
+
+  # Web 服务器
+  web:
+    image: nginx:alpine
+    container_name: nginx_server
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./html:/usr/share/nginx/html:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    networks:
+      - infra-network
+
+networks:
+  infra-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  onlyoffice_pg_data:
+  documentserver_data:
+  documentserver_logs:

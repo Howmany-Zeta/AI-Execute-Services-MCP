@@ -10,3 +10,6 @@
 [submodule "Stats-Tool"]
 	path = Stats-Tool
 	url = git@github.com:Howmany-Zeta/AI-Execute-Services-STATS-MCP.git
+[submodule "Office-Tool"]
+	path = Office-Tool
+	url = git@github.com:Howmany-Zeta/AI-Execute-Services-OFFICE-MCP.git
