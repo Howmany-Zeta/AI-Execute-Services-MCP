@@ -5,6 +5,7 @@
 
 # IDE
 .vscode/
+.cursor/
 .idea/
 *.swp
 *.swo
@@ -46,3 +47,12 @@ DocumentServer/config/local.json
 DocumentServer-source/.mrconfig
 DocumentServer-source/
 
+# openspec
+openspec/
+.openspec.yaml
+openspec/config.yaml
+AGENT.md
+
+# reference
+reference/
+archive/
