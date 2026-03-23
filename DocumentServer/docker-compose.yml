@@ -1,18 +1,20 @@
-# DocumentServer - OnlyOffice 文档服务
-# 使用自编译镜像（ghcr.io/...）或官方镜像
-# 自编译镜像已应用：去品牌 + 无 20 并发限制
+# AIECS 预构建 DocumentServer（品牌与并发等已在镜像内完成）
+# 镜像构建与补丁流程见仓库 AI-Execute-Services-Doc
+#
+# 使用前需能拉取 Artifact Registry（gcloud auth configure-docker us-central1-docker.pkg.dev）
+#
+#   cp .env.example .env   # 可选：覆盖 JWT、镜像 tag、端口
+#   docker compose pull
+#   docker compose up -d
 
 services:
   documentserver:
-    # 自编译镜像（CI 构建后替换为实际地址）
-    # image: ghcr.io/Howmany-Zeta/documentserver-custom:latest
-    # 临时使用官方镜像（未去品牌、有 20 限制）
-    image: onlyoffice/documentserver:latest
+    image: ${DOCUMENTSERVER_IMAGE:-us-central1-docker.pkg.dev/ca-biz-kjmsdw-y59m/aiecs-mcp-servers/aiecs-documentserver:latest}
     container_name: aiecs-documentserver
     restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - "${DS_HTTP_PORT:-8080}:80"
+      - "${DS_HTTPS_PORT:-8443}:443"
     environment:
       - JWT_ENABLED=${JWT_ENABLED:-true}
       - JWT_SECRET=${JWT_SECRET:-your-jwt-secret-change-me}
@@ -21,8 +23,6 @@ services:
     volumes:
       - documentserver_data:/var/www/onlyoffice/Data
       - documentserver_logs:/var/log/onlyoffice
-      # Optional: mount custom config (copy local.json.example to local.json)
-      # - ./config/local.json:/etc/onlyoffice/documentserver/local.json:ro
     networks:
       - aiecs-documentserver-network
 

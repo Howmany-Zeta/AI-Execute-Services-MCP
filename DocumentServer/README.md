@@ -1,20 +1,38 @@
-# DocumentServer
+# DocumentServer（AIECS 预构建镜像）
 
-基于 OnlyOffice 官方镜像 + patch 覆盖（方案 A），去除 20 并发限制并隐藏品牌。
+本目录不再包含补丁或本地构建：品牌与并发限制等已打入 **Artifact Registry** 中的镜像。
 
-## 补丁说明
+默认镜像（与 **AI-Execute-Services-Doc** 发布脚本推送的 `latest` 一致；需固定日期或 digest 时可改 `DOCUMENTSERVER_IMAGE`）：
 
-- **patches/constants.js**：基于 [ONLYOFFICE/server master](https://github.com/ONLYOFFICE/server/blob/master/Common/sources/constants.js) 最新源码，将 `LICENSE_CONNECTIONS` 从 20 改为 9999。
-- **品牌去除**：在 Dockerfile 中追加 CSS 到 `app.css`，隐藏 `.ad-container`、`.powered-by-onlyoffice` 等元素。
+`us-central1-docker.pkg.dev/ca-biz-kjmsdw-y59m/aiecs-mcp-servers/aiecs-documentserver:latest`
 
-## 构建
+镜像来源与从源码构建流程见 **`AI-Execute-Services-Doc`** 仓库（根目录 `README.md` / `Dockerfile.documentserver`）。
 
-```bash
-docker build -t aiecs-documentserver-patched:latest .
-# 或指定基础版本
-docker build --build-arg ONLYOFFICE_VERSION=8.1.3 -t aiecs-documentserver-patched:8.1.3 .
-```
+## 启动
 
-## 补丁更新
+1. 已配置 Docker 拉取 GCP Artifact Registry：
 
-当 OnlyOffice 升级时，从 [ONLYOFFICE/server](https://github.com/ONLYOFFICE/server) 拉取最新 `Common/sources/constants.js`，仅修改 `LICENSE_CONNECTIONS` 行，更新 `patches/constants.js` 后重新构建。
+   ```bash
+   gcloud auth configure-docker us-central1-docker.pkg.dev
+   ```
+
+2. 在本目录：
+
+   ```bash
+   cp .env.example .env   # 可选：修改 JWT_SECRET、镜像 tag、端口
+   docker compose pull
+   docker compose up -d
+   ```
+
+3. 浏览器访问：`http://localhost:<DS_HTTP_PORT>/`（默认 `8080`）。
+
+首次启动需等待内部服务就绪（约 1–3 分钟）。日志：`docker compose logs -f documentserver`。
+
+## 配置
+
+- `config/local.json.example` 可作为 JWT 等配置参考（按需挂载到容器内 `local.json` 路径，见官方 DocumentServer 文档）。
+- 生产环境务必修改 **`JWT_SECRET`**。
+
+## 与统一基础设施（infra）
+
+仓库内 **`infra/docker-compose.yml`** 已改为使用同一镜像变量，不再从本目录 `Dockerfile` 构建。

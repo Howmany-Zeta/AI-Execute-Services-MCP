@@ -152,14 +152,8 @@ services:
     networks: [aiecs-network]
 
   documentserver:
-    # 方案 A：官方镜像 + patch 覆盖（无 20 限制、去品牌）
-    # 优先使用预构建镜像，否则从 DocumentServer 目录 build
-    build:
-      context: ../DocumentServer
-      dockerfile: Dockerfile
-      args:
-        ONLYOFFICE_VERSION: ${ONLYOFFICE_VERSION:-latest}
-    image: aiecs-documentserver-patched:latest
+    # 预构建镜像（品牌与并发等已内置）：GCP Artifact Registry
+    image: ${DOCUMENTSERVER_IMAGE:-us-central1-docker.pkg.dev/ca-biz-kjmsdw-y59m/aiecs-mcp-servers/aiecs-documentserver:latest}
     container_name: aiecs-documentserver
     restart: unless-stopped
     ports: ["8080:80"]

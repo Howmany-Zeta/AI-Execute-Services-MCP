@@ -80,14 +80,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # DocumentServer (OnlyOffice) - 文档编辑服务
+  # DocumentServer (OnlyOffice) - 使用 AIECS 预构建镜像（Artifact Registry）
   documentserver:
-    build:
-      context: ../AI-Execute-Services-MCP/DocumentServer
-      dockerfile: Dockerfile
-      args:
-        ONLYOFFICE_VERSION: ${ONLYOFFICE_VERSION:-latest}
-    image: aiecs-documentserver-patched:latest
+    image: ${DOCUMENTSERVER_IMAGE:-us-central1-docker.pkg.dev/ca-biz-kjmsdw-y59m/aiecs-mcp-servers/aiecs-documentserver:latest}
     container_name: aiecs-documentserver
     restart: unless-stopped
     ports:

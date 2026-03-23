@@ -15,7 +15,7 @@ cp .env.example .env
 
 - Docker & Docker Compose
 - Git（子模块需已克隆）
-- DocumentServer：使用方案 A（官方镜像 + patch 覆盖），从 `DocumentServer/` 目录构建，或使用预构建镜像 `aiecs-documentserver-patched:latest`
+- DocumentServer：使用预构建镜像 `DOCUMENTSERVER_IMAGE`（默认 GCP Artifact Registry `aiecs-documentserver`；已含去品牌与并发等）。部署前需 `gcloud auth configure-docker us-central1-docker.pkg.dev`；镜像构建与补丁流程见 **`AI-Execute-Services-Doc`** 仓库（非本仓库）
 
 ## 端口
 

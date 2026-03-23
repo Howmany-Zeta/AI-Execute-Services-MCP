@@ -154,37 +154,13 @@ set -e
 # 4. git push origin
 ```
 
-### 2.5 CI 构建流程（采用方案 A：官方镜像 + patch 覆盖）
+### 2.5 预构建镜像（当前）
 
-> **采用方案**：官方镜像 + patch 文件覆盖。因 core 等子模块源码无法完整下载，放弃 btactic 从源码构建，改为基于 `onlyoffice/documentserver` 官方镜像，用 COPY 覆盖补丁文件，无需完整重编译，构建快、易维护。
+> **本仓库 `DocumentServer/`** 不再包含 `patches` 或 `Dockerfile`：品牌与并发限制等已打入 **Artifact Registry** 镜像。
 
-#### 补丁文件说明
-
-- **`patches/constants.js`**：基于 [ONLYOFFICE/server master](https://github.com/ONLYOFFICE/server/blob/master/Common/sources/constants.js) 最新源码，仅将 `LICENSE_CONNECTIONS` 从 20 改为 9999。
-- **品牌去除**：在 Dockerfile 中通过 `RUN echo ... >> app.css` 追加 CSS 到现有文件，隐藏 `.ad-container`、`.powered-by-onlyoffice` 等元素。
-
-#### Dockerfile 示例（DocumentServer/Dockerfile）
-
-```dockerfile
-ARG ONLYOFFICE_VERSION=latest
-FROM onlyoffice/documentserver:${ONLYOFFICE_VERSION}
-
-# 覆盖 constants.js，去除 20 并发限制
-COPY patches/constants.js \
-  /var/www/onlyoffice/documentserver/server/Common/sources/constants.js
-
-# 品牌去除：追加到现有 CSS 文件
-RUN echo ".ad-container,.powered-by-onlyoffice{display:none!important}" \
-  >> /var/www/onlyoffice/documentserver/web-apps/apps/common/main/resources/css/app.css
-```
-
-#### CI 示例（GitHub Actions）
-
-主仓库已包含 `.github/workflows/build-documentserver-patched.yml`，当 `DocumentServer/` 变更时自动构建并推送到 `ghcr.io/<owner>/documentserver-patched:latest`。
-
-#### 补丁更新流程
-
-当 OnlyOffice 升级版本时，从 [ONLYOFFICE/server](https://github.com/ONLYOFFICE/server) 拉取最新 `Common/sources/constants.js`，仅修改 `LICENSE_CONNECTIONS` 行，更新 `patches/constants.js` 后重新构建镜像。
+- **镜像**：`us-central1-docker.pkg.dev/ca-biz-kjmsdw-y59m/aiecs-mcp-servers/aiecs-documentserver`（默认 `:latest`，由 **AI-Execute-Services-Doc** 发布脚本推送；需固定版本时改为 `custom-YYYYMMDD` 或 `custom-YYYYMMDD-<sha>`，或设置 `DOCUMENTSERVER_IMAGE`）。
+- **构建与补丁**：在独立仓库 **`AI-Execute-Services-Doc`** 中完成（`out/` 产物打补丁 → `Dockerfile.documentserver` → 推送至 GAR）。
+- **CI**：本仓库不再包含 `build-documentserver-patched` 工作流；镜像发布在 GAR 或 CI 流水线中完成。
 
 ### 2.6 合并上游流程
 
@@ -545,11 +521,10 @@ echo "DocumentServer: http://localhost:8080  (健康检查: /healthcheck)"
 
 ## 6. 实施路线图
 
-### Phase 1：DocumentServer patch 构建与 CI（约 1 周）
+### Phase 1：DocumentServer 预构建镜像（已完成 / 在独立仓库维护）
 
-1. [ ] 维护 `DocumentServer/patches/constants.js`（基于 [ONLYOFFICE/server](https://github.com/ONLYOFFICE/server) 最新源码）
-2. [ ] 配置 GitHub Actions：`docker build` DocumentServer 并推送到 GHCR
-3. [ ] 验证补丁生效：20 并发限制已去除、品牌已隐藏
+1. [x] 在 **AI-Execute-Services-Doc** 构建并推送 `aiecs-documentserver` 至 GAR（含去品牌、并发等）
+2. [ ] 版本升级时：在 AI-Execute-Services-Doc 重新打补丁、构建并推送新 tag
 
 ### Phase 2：DocumentServer 部署（约 1 周）
 
