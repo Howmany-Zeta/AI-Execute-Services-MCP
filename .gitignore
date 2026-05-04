@@ -23,6 +23,7 @@ __pycache__/
 .Python
 .venv/
 venv/
+credentials/
 
 # Node.js
 node_modules/
