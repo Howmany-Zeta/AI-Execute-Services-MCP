@@ -20,7 +20,7 @@ services:
       - MCP_PORT=5050
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-CU5tX60E4Lp}
     volumes:
       - api-tool-logs:/app/logs
     depends_on:
@@ -28,7 +28,7 @@ services:
         condition: service_healthy
     networks: [aiecs-network]
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5050/health', timeout=5)"]
+      test: ["CMD", "python", "-c", "import requests; r=requests.get('http://localhost:5050/health/live', timeout=5); r.raise_for_status()"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -48,7 +48,7 @@ services:
       - MCP_PORT=5080
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-CU5tX60E4Lp}
     volumes:
       - stats-tool-logs:/app/logs
     depends_on:
@@ -56,10 +56,15 @@ services:
         condition: service_healthy
     networks: [aiecs-network]
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5080/health', timeout=5)"]
-      interval: 30s
-      timeout: 10s
+      test:
+        [
+          "CMD-SHELL",
+          "python -c \"import os,requests; p=(os.environ.get('MCP_PORT') or '5080').strip() or '5080'; r=requests.get('http://127.0.0.1:'+p+'/health/ready', timeout=12); r.raise_for_status()\"",
+        ]
+      interval: 45s
+      timeout: 15s
       retries: 3
+      start_period: 60s
 
   scraper-tool:
     build:
@@ -76,7 +81,7 @@ services:
       - MCP_PORT=5055
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-CU5tX60E4Lp}
     volumes:
       - scraper-tool-logs:/app/logs
     depends_on:
@@ -107,7 +112,7 @@ services:
       - ppt-tool-logs:/app/logs
     networks: [aiecs-network]
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health/ready"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -191,11 +196,11 @@ services:
       --appendonly yes
       --maxmemory 512mb
       --maxmemory-policy allkeys-lru
-      --requirepass ${REDIS_PASSWORD}
+      --requirepass ${REDIS_PASSWORD:-CU5tX60E4Lp}
     volumes: [redis_data:/data]
     networks: [aiecs-network]
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-CU5tX60E4Lp}", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
